@@ -152,7 +152,8 @@ class Bestellung:
 
 def get_name_inputfile():
     try:
-        return 'neu'
+        # return "2020_terra_bestellung_kw45.pdf"
+
         if len(sys.argv) > 1:
             return sys.argv[1]
         else:
@@ -170,40 +171,52 @@ def parse_druckdatei(input_text):
     if debug:
         print("*** parse_druckdatei(" + inputfile.name + ") ")
     bestellungliste = []
-    print(len(input_text))
-    for j in range(10):
-        print(input_text[j])
 
     # Iteration über die Zeilen des input_texts beginnend ab 8
     for i in range(7, len(input_text)):
         zeile = input_text[i].split("  ")
-        # print(zeile)
 
         # durch split("  ") erzeugte leere Strings entfernen
         while "" in zeile:
             zeile.remove("")
 
-        print(len(zeile))
-        print(zeile)
+        if len(zeile) > 6:  # kurze Zeilen mit z.B. der Seitennummer ignorieren
 
-        if len(input_text[i]) == 8:
+            # Auftrennen von [1 3,5 x 1 KG] anhand des x, wobei
+            # die erste Ziffer die Anzahl der Gebinde,
+            # die zweite die Menge pro Gebinde und
+            # die dritte die Einheit der Gebinde widergibt
 
-            gebinde = input_text[i][3].split(" x ")
-            # print(gebinde)
+            # ergibt gebinde Liste [' 1 3,5', '1 KG]
+            gebinde = zeile[2].split(" x ")
+
+            # anzahl ist erste Ziffer des ersten Strings von Gebinde nach
+            # erneuter Auftrennung
+            anzahl = int(gebinde[0].split()[0])
+
+            # menge der zweite Teil des ersten Strings
+            menge = float(gebinde[0].split()[1].replace(',', '.'))
+
+            # einheit des Gebindes im zweiten Teil der Liste nach dem ersten
+            # split(" x ")
+            einheit = gebinde[1]
+
+            # Erzeugen des Artikel-Objekts aus einer Zeile
             artikel = Artikel(
-                input_text[i][0],
-                input_text[i][1],
-                int(input_text[i][2]),
-                float(gebinde[0].replace(',', '.')),
-                gebinde[1],
-                float(input_text[i][4].replace(',', '.'))
+                zeile[0],   # Bestellnummer
+                zeile[1],   # Artikelbezeichnung
+                anzahl,  # Anzahl der Gebinde
+                menge,    # Menge pro Gebinde
+                einheit,      # Eineit
+                float(zeile[3].replace(',', '.'))  # Nettopreis
             )
-            # print(artikel)
 
             bestellungliste.append(artikel)
 
     # Bestellungobjekt zur Rückgabe, in der Datei 2. Zeile sollte Datum stehen
+    # print(input_text[4])
     bestellung = Bestellung(bestellungliste, input_text[4])
+
     return bestellung
 
 
@@ -259,20 +272,19 @@ def parse_lieferavis(inputfile):
 
 
 try:
-    inputfile = open(get_name_inputfile())   # Datei öffnen
+    inputfile = open(get_name_inputfile(), 'rb')   # Datei öffnen
     if debug:
         print("*** Datei geöffnet")
     if not inputfile:
         sys.exit()
 except:
-    print("Die Datei konnte nicht geöffnet werden.")
+    print("Die Datei '" + get_name_inputfile() + "' konnte nicht geöffnet werden.")
     sys.exit()
 
-pdftext = PDFtoText(open(r"2020_terra_bestellung_kw45.pdf", 'rb'))
+pdftext = PDFtoText(inputfile)
 # print(pdftext)
 bestellung = parse_druckdatei(pdftext)
-# bestellung = parse_druckdatei(inputfile)
-# bestellung.drucken()
+bestellung.drucken()
 
 inputfile.close()
 
