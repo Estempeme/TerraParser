@@ -4,8 +4,53 @@
 import re
 import sys
 import pdftotext
+from fpdf import FPDF
 
 debug = True
+
+
+def schreibe_pdf(bestell_liste, datum):
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+
+    pdf.add_page()
+    try:
+        pdf.image('logo-fcn.jpg', x=160, y=8, w=30)
+    except:
+        print("Logo nicht gefunden")
+
+    pdf.set_font("Times", size=14)
+    pdf.cell(180, 20, txt="Terrabestellung vom " + datum, ln=1, align="C")
+    # pdf.line(10, 10, 10, 100)
+    pdf.set_line_width(.5)
+    # pdf.set_draw_color(255, 0, 0)
+
+    pdf.line(10, 37, 190, 37)
+    pdf.ln(20)  # move 20 down
+
+    pdf.set_font("Times", size=12)
+    pdf.cell(45, 8, txt="Bezeichnung", align="C")
+    pdf.cell(20, 8, txt="Grundpreis", align="C")
+    pdf.cell(20, 8, txt=f"{Mwst.erm*100} %", align="C")
+    pdf.cell(20, 8, txt=f"{Mwst.norm*100} %", ln=1, align="C")
+
+    pdf.set_font("Times", size=10)
+
+    for artikel in bestell_liste:
+        # zeile = 0
+        pdf.cell(40, 8, txt=artikel.bezeichnung, align="L")
+        pdf.cell(20, 8, txt=f"{artikel.grundpreis:.2f}".replace('.',','), align="R")
+        pdf.cell(20, 8, txt=f"{artikel.mwstErm:.2f}".replace('.',','),  align="R")
+        pdf.cell(20, 8, txt=f"{artikel.mwstNorm:.2f}".replace('.',','), ln=1, align="R")
+        # zeile += 10
+
+    try:
+        tag = datum.split(".")[0]
+        monat = datum.split(".")[1]
+        jahr = datum.split(".")[2]
+        pdf.output(jahr + "-" + monat + "-" + tag + "-Terrabestellung.pdf")
+    except:
+        pdf.output("Terrabestellung.pdf")
+
 
 
 def PDFtoText(pdf_file):
@@ -64,8 +109,8 @@ class Artikel:
         self.einheit = einheit
         self.gesamtpreis = gesamtpreis
         self.grundpreis = gesamtpreis/gebindezahl/anzahl
-        self.mwstErm = self.__mwst(self.grundpreis, Mwst.erm)
-        self.mwstNorm = self.__mwst(self.grundpreis, Mwst.norm)
+        self.mwstErm = Mwst.berechnen(self.grundpreis, Mwst.erm)
+        self.mwstNorm = Mwst.berechnen(self.grundpreis, Mwst.norm)
 
     def __mwst(self, nettopreis, mwst):
         """ private Funktion der Klasse Artikel zur Berechnung der aufgerundeten
@@ -215,7 +260,7 @@ def parse_druckdatei(input_text):
 
     # Bestellungobjekt zur Rückgabe, in der Datei 2. Zeile sollte Datum stehen
     # print(input_text[4])
-    bestellung = Bestellung(bestellungliste, input_text[4])
+    bestellung = Bestellung(bestellungliste, input_text[4].split()[0])
 
     return bestellung
 
@@ -284,9 +329,11 @@ except:
 pdftext = PDFtoText(inputfile)
 # print(pdftext)
 bestellung = parse_druckdatei(pdftext)
-bestellung.drucken()
+# bestellung.drucken()
+schreibe_pdf(bestellung.liste, bestellung.datum)
 
 inputfile.close()
+
 
 # if __name__ == "__main__":
 #    main()
