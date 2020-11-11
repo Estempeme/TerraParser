@@ -67,6 +67,19 @@ def PDFtoText(pdf_file):
     return pdf_text
 
 
+
+class Datum:
+    """ Klasse mit Tag, Monat, Jahr aus den Texfeldern generiert
+    """
+    def __init__(self, tag, monat, jahr):
+        self.tag = tag
+        self.monat = monat
+        self.jahr = jahr
+
+    def get_datum_string(self):
+        return(f"{self.tag}" + "." + f"{self.monat}" + "." + f"{self.jahr}" )
+
+
 class Mwst:
     """ Enthält die beiden Mehrwertsteuersätze, ermäßigt und normal
     """
@@ -100,15 +113,15 @@ class Artikel:
         Artikelpositionen und eine Funktion zur Berechnung der aufgerundeten
         Mehrwertsteuersätze
     """
-    def __init__(self, bestellnummer, bezeichnung, anzahl, gebindezahl, einheit,
+    def __init__(self, artikelnummer, bezeichnung, anzahl, menge_pro_gebinde, einheit,
                  gesamtpreis):
-        self.bestellnummer = bestellnummer
+        self.artikelnummer = artikelnummer
         self.bezeichnung = bezeichnung
-        self.gebindezahl = gebindezahl
+        self.menge_pro_gebinde = menge_pro_gebinde
         self.anzahl = anzahl
         self.einheit = einheit
         self.gesamtpreis = gesamtpreis
-        self.grundpreis = gesamtpreis/gebindezahl/anzahl
+        self.grundpreis = gesamtpreis/menge_pro_gebinde/anzahl
         self.mwstErm = Mwst.berechnen(self.grundpreis, Mwst.erm)
         self.mwstNorm = Mwst.berechnen(self.grundpreis, Mwst.norm)
 
@@ -141,7 +154,6 @@ class Bestellung:
         self.kommentar = "…………………………………………………\nKommentar:\n"
 
     def __make_outputstring(self):
-
         """
         setzt den String für das Speichern in Datei self.speichern()
         oder Druckausgabe self.drucken() zusammen
@@ -159,7 +171,7 @@ class Bestellung:
         for i in range(len(self.liste)):
             artikel = self.liste[i]
 
-            käse = 190000 > int(artikel.bestellnummer) > 130844
+            käse = 190000 > int(artikel.artikelnummer) > 130844
 
             outputstring += '{:.<25.25}'.format(artikel.bezeichnung)
             outputstring += '{:>8.2f}'.format(artikel.grundpreis).replace('.', ',')
@@ -212,6 +224,69 @@ def get_name_inputfile():
         print('Fehler in Funktion "get_name_inputfile()"')
 
 
+def parse_textdatei(input_file):
+    if debug:
+        print("*** parse_textdatei aufgerufen")
+        input_text = []
+        for line in input_file:
+            input_text.append(line.split("  "))
+            print(line)
+        bestellungliste = []
+
+        # Das Datum sollte in der ersten Zeile an vierter Stelle stehen
+        # Übernahme von Tag, Monat und Jahr
+        try:
+            datum = Datum(input_text[0][0].split()[3].split(".")[0],
+                          input_text[0][0].split()[3].split(".")[1],
+                          input_text[0][0].split()[3].split(".")[2])
+            if debug:
+                print("*** Datum: " + datum.get_datum_string())
+
+        except:
+            eingabe = input("*** Datum nicht erkannt, bitte Datum eingeben im Format dd.mm.jjjj: ").split(".")
+            datum = Datum(eingabe[0], eingabe[1], eingabe[2])
+
+        for zeile in input_text:
+            if zeile[0].isnumeric():
+                while "" in zeile:
+                    zeile.remove("")
+
+                try:
+                    anzahl = 4 # int(zeile[3].split("/")[0])
+                    menge = 4.4
+                    print(zeile)
+                    print(zeile[4].split()[0].replace(",", "."))
+                    einheit = zeile[3].split("/")[1]
+                    preis_feld = zeile[len(zeile)-1].split()
+                    if len(preis_feld) == 2:
+                        preis = float(preis_feld[0].replace(",", "."))
+                    elif len(preis_feld) == 3:
+                        preis = 34.2 # float(preis_feld[1].replace(",", "."))
+                    else:
+                        print("Preis konnte nicht erkannt werden:")
+                        print(preis_feld)
+
+                except:
+                    print("Zeile konnte nicht geparst werden:")
+                    print(zeile)
+                    print(f"Anzahl: {anzahl}", f"   Menge: {menge}", f"   Einheit: {einheit}", f"   Preis: {preis}")
+                    print("-------")
+
+                try:
+                    artikel = Artikel(
+                        zeile[0],   # artikelnummer
+                        zeile[1],   # Artikelbezeichnung
+                        anzahl,  # Anzahl der Gebinde
+                        menge,    # Menge pro Gebinde
+                        einheit,      # Eineit
+                        preis/menge/anzahl  # Nettopreis
+                    )     # print(zeile)
+
+                except:
+                    print("Artikel konnte nicht angelegt werden")
+                # Erzeugen des Artikel-Objekts aus einer Zeile
+
+
 def parse_druckdatei(input_text):
     if debug:
         print("*** parse_druckdatei(" + inputfile.name + ") ")
@@ -222,6 +297,7 @@ def parse_druckdatei(input_text):
         zeile = input_text[i].split("  ")
 
         # durch split("  ") erzeugte leere Strings entfernen
+        i = 1
         while "" in zeile:
             zeile.remove("")
 
@@ -246,9 +322,10 @@ def parse_druckdatei(input_text):
             # split(" x ")
             einheit = gebinde[1]
 
+
             # Erzeugen des Artikel-Objekts aus einer Zeile
             artikel = Artikel(
-                zeile[0],   # Bestellnummer
+                zeile[0],   # artikelnummer
                 zeile[1],   # Artikelbezeichnung
                 anzahl,  # Anzahl der Gebinde
                 menge,    # Menge pro Gebinde
@@ -267,21 +344,21 @@ def parse_druckdatei(input_text):
 
 def parse_lieferavis(inputfile):
     bestellungliste = []
-    bestellnummer = bezeichnung = ""
+    artikelnummer = bezeichnung = ""
     kommentar = ""
     for i in inputfile:
         line = i
 
         # die Datei wird zeilenweise eingelesen in line. string1 nimmt die
-        # Bestellnummer auf
+        # artikelnummer auf
         try:
             string1 = re.split("\s", line, 1)[0]   # einlesen bis zum 1. WS
 
-            # Bestellnummer enthält mind. 6 Zahlen
+            # artikelnummer enthält mind. 6 Zahlen
             if re.findall("[0-9]{6}", string1):
-                bestellnummer = string1
+                artikelnummer = string1
 
-                # nur Zeilen mit erkannter Bestellnummer werden weiter
+                # nur Zeilen mit erkannter artikelnummer werden weiter
                 # untersucht, Bezeichnung ist ab dem 4. Leerzeichen
                 try:
                     string2 = re.split("\s", line, 3)[3]
@@ -294,13 +371,13 @@ def parse_lieferavis(inputfile):
                     kommentar += i
 
         except:
-            bestellnummer = "??????"
-            kommentar += "\nKeine Bestellnummer erkannt in Zeile: " + i
+            artikelnummer = "??????"
+            kommentar += "\nKeine artikelnummer erkannt in Zeile: " + i
 
-        if bestellnummer.strip():
-            a = Artikel(bestellnummer,  # bestellnummer
+        if artikelnummer.strip():
+            a = Artikel(artikelnummer,  # bestellnummer
                         bezeichnung,  # bezeichnung
-                        4,              # gebindezahl
+                        4,              # menge_pro_gebinde
                         2,              # anzahl
                         "Einheit",      # einheit
                         11.2            # gesamtpreis
@@ -317,7 +394,7 @@ def parse_lieferavis(inputfile):
 
 
 try:
-    inputfile = open(get_name_inputfile(), 'rb')   # Datei öffnen
+    inputfile = open(get_name_inputfile())   # Datei öffnen
     if debug:
         print("*** Datei geöffnet")
     if not inputfile:
@@ -326,11 +403,15 @@ except:
     print("Die Datei '" + get_name_inputfile() + "' konnte nicht geöffnet werden.")
     sys.exit()
 
-pdftext = PDFtoText(inputfile)
-# print(pdftext)
-bestellung = parse_druckdatei(pdftext)
+# pdftext = PDFtoText(inputfile)
+
+# if debug:
+#    print("Der erkannte pdf-Text:")
+#    print(pdftext)
+
+bestellung = parse_textdatei(inputfile)
 # bestellung.drucken()
-schreibe_pdf(bestellung.liste, bestellung.datum)
+# schreibe_pdf(bestellung.liste, bestellung.datum)
 
 inputfile.close()
 
