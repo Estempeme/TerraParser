@@ -9,7 +9,9 @@ from fpdf import FPDF
 debug = True
 
 
-def schreibe_pdf(bestell_liste, datum):
+def schreibe_pdf(bestellung):
+    bestell_liste = bestellung.liste
+    datum = bestellung.datum.get_datum_string()
     pdf = FPDF(orientation='P', unit='mm', format='A4')
 
     pdf.add_page()
@@ -206,6 +208,8 @@ class Bestellung:
                 anderem Namen gespeichert
             """
 
+        bestellung = Bestellung(bestellung_liste, datum)
+        return bestellungjanberw.eiler@gmail.com
 
 def get_name_inputfile():
     try:
@@ -239,6 +243,7 @@ def parse_textdatei(input_file):
             datum = Datum(input_text[0][0].split()[3].split(".")[0],
                           input_text[0][0].split()[3].split(".")[1],
                           input_text[0][0].split()[3].split(".")[2])
+
             if debug:
                 print("*** Datum: " + datum.get_datum_string())
 
@@ -254,8 +259,8 @@ def parse_textdatei(input_file):
                 try:
                     anzahl = 4 # int(zeile[3].split("/")[0])
                     menge = 4.4
-                    print(zeile)
-                    print(zeile[4].split()[0].replace(",", "."))
+                    # print(zeile)
+                    # print(zeile[4].split()[0].replace(",", "."))
                     einheit = zeile[3].split("/")[1]
                     preis_feld = zeile[len(zeile)-1].split()
                     if len(preis_feld) == 2:
@@ -281,10 +286,22 @@ def parse_textdatei(input_file):
                         einheit,      # Eineit
                         preis/menge/anzahl  # Nettopreis
                     )     # print(zeile)
+                    # print("Artikel angelegt")
+
+                    bestellungliste.append(artikel)
 
                 except:
                     print("Artikel konnte nicht angelegt werden")
                 # Erzeugen des Artikel-Objekts aus einer Zeile
+                #
+
+    # Bestellungobjekt zur Rückgabe, in der Datei 2. Zeile sollte Datum stehen
+    # print(input_text[4])
+    bestellung = Bestellung(bestellungliste, datum)
+
+    return bestellung
+
+
 
 
 def parse_druckdatei(input_text):
@@ -411,7 +428,7 @@ except:
 
 bestellung = parse_textdatei(inputfile)
 # bestellung.drucken()
-# schreibe_pdf(bestellung.liste, bestellung.datum)
+schreibe_pdf(bestellung)
 
 inputfile.close()
 
